@@ -1,5 +1,4 @@
 # Project Files CSCE 4600
-[![golangci-lint](https://github.com/vanditjindal/CSCE4600/actions/workflows/golangci-lint.yml/badge.svg?branch=main)]
 
 ## Operating Systems
 
