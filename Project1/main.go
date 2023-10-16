@@ -27,14 +27,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Define the time quantum (you can adjust this value as needed)
+	var timeQuantum int64 = 2
+
 	// First-come, first-serve scheduling
 	FCFSSchedule(os.Stdout, "First-come, first-serve", processes)
 
-	//SJFSchedule(os.Stdout, "Shortest-job-first", processes)
-	//
-	//SJFPrioritySchedule(os.Stdout, "Priority", processes)
-	//
-	//RRSchedule(os.Stdout, "Round-robin", processes)
+	// SJF (preemptive) scheduling
+	SJFSchedule(os.Stdout, "Shortest-job-first (preemptive)", processes)
+
+	//SJF Priority Scheduling (preemptive)
+	SJFPrioritySchedule(os.Stdout, "Priority", processes)
+
+	RRSchedule(os.Stdout, "Round-robin", processes, timeQuantum)
 }
 
 func openProcessingFile(args ...string) (*os.File, func(), error) {
@@ -127,11 +132,212 @@ func FCFSSchedule(w io.Writer, title string, processes []Process) {
 	outputSchedule(w, schedule, aveWait, aveTurnaround, aveThroughput)
 }
 
-//func SJFPrioritySchedule(w io.Writer, title string, processes []Process) { }
-//
-//func SJFSchedule(w io.Writer, title string, processes []Process) { }
-//
-//func RRSchedule(w io.Writer, title string, processes []Process) { }
+// Common scheduling function with priority criteria
+func schedule(w io.Writer, title string, processes []Process, priority func(int64, int64, int64) bool) {
+	var (
+		currentTime     int64
+		totalWait       float64
+		totalTurnaround float64
+		lastCompletion  int64
+		schedule        = make([][]string, len(processes))
+		gantt           = make([]TimeSlice, 0)
+		readyQueue      = make([]Process, 0)
+	)
+
+	for len(readyQueue) > 0 || len(processes) > 0 {
+		// Add arriving processes to the ready queue
+		for len(processes) > 0 && processes[0].ArrivalTime <= currentTime {
+			readyQueue = append(readyQueue, processes[0])
+			processes = processes[1:]
+		}
+
+		if len(readyQueue) == 0 {
+			currentTime++
+			continue
+		}
+
+		// Find the process with the highest priority (and shortest remaining burst time)
+		highestPriorityIndex := 0
+		for i := 1; i < len(readyQueue); i++ {
+			if priority(readyQueue[i].Priority, readyQueue[i].BurstDuration, readyQueue[highestPriorityIndex].BurstDuration) {
+				highestPriorityIndex = i
+			}
+		}
+
+		currentProcess := readyQueue[highestPriorityIndex]
+		readyQueue = append(readyQueue[:highestPriorityIndex], readyQueue[highestPriorityIndex+1:]...)
+
+		// Calculate waiting time for the selected process
+		waitingTime := currentTime - currentProcess.ArrivalTime
+		totalWait += float64(waitingTime)
+
+		// Update the gantt chart
+		gantt = append(gantt, TimeSlice{
+			PID:   currentProcess.ProcessID,
+			Start: currentTime,
+			Stop:  currentTime + currentProcess.BurstDuration,
+		})
+
+		// Update the scheduling information
+		schedule[currentProcess.ProcessID-1] = []string{
+			fmt.Sprint(currentProcess.ProcessID),
+			fmt.Sprint(currentProcess.Priority),
+			fmt.Sprint(currentProcess.BurstDuration),
+			fmt.Sprint(currentProcess.ArrivalTime),
+			fmt.Sprint(waitingTime),
+			"", // Turnaround time (to be calculated later)
+			"", // Completion time (to be calculated later)
+		}
+
+		// Update current time
+		currentTime += currentProcess.BurstDuration
+
+		// Calculate turnaround time for the selected process
+		turnaround := currentTime - currentProcess.ArrivalTime
+		totalTurnaround += float64(turnaround)
+
+		lastCompletion = currentTime
+
+		// Update the schedule with the calculated turnaround and completion time
+		schedule[currentProcess.ProcessID-1][5] = fmt.Sprint(turnaround)
+		schedule[currentProcess.ProcessID-1][6] = fmt.Sprint(currentTime)
+	}
+
+	count := float64(len(schedule))
+	aveWait := totalWait / count
+	aveTurnaround := totalTurnaround / count
+	aveThroughput := count / float64(lastCompletion)
+
+	outputTitle(w, title)
+	outputGantt(w, gantt)
+	outputSchedule(w, schedule, aveWait, aveTurnaround, aveThroughput)
+}
+
+// Function to determine priority based on SJF criteria
+func sjfPriorityCriteria(priority, burst1, burst2 int64) bool {
+	// Consider priority first; if priorities are the same, choose the process with the shorter burst time.
+	if priority == burst1 && priority == burst2 {
+		return false
+	}
+	if priority == burst1 {
+		return true
+	}
+	if priority == burst2 {
+		return false
+	}
+	return burst1 < burst2
+}
+
+// SJFSchedule performs Shortest-Job-First (preemptive) scheduling
+func SJFSchedule(w io.Writer, title string, processes []Process) {
+	schedule(w, title, processes, sjfPriorityCriteria)
+}
+
+// Function to determine priority based on SJF Priority criteria
+func sjfPriorityPriorityCriteria(priority, burst1, burst2 int64) bool {
+	// Choose the process with the shorter burst time and, if they are the same, select the one with higher priority.
+	if burst1 == burst2 {
+		return priority > priority
+	}
+	return burst1 < burst2
+}
+
+// SJFPrioritySchedule performs Shortest-Job-First Priority (preemptive) scheduling
+func SJFPrioritySchedule(w io.Writer, title string, processes []Process) {
+	schedule(w, title, processes, sjfPriorityPriorityCriteria)
+}
+
+// RRSchedule performs Round-Robin (preemptive) scheduling
+func RRSchedule(w io.Writer, title string, processes []Process, timeQuantum int64) {
+	var (
+		currentTime     int64
+		totalWait       float64
+		totalTurnaround float64
+		lastCompletion  int64
+		schedule        = make([][]string, len(processes))
+		gantt           = make([]TimeSlice, 0)
+		readyQueue      = make([]Process, 0)
+	)
+
+	for len(readyQueue) > 0 || len(processes) > 0 {
+		// Add arriving processes to the ready queue
+		for len(processes) > 0 && processes[0].ArrivalTime <= currentTime {
+			readyQueue = append(readyQueue, processes[0])
+			processes = processes[1:]
+		}
+
+		if len(readyQueue) == 0 {
+			currentTime++
+			continue
+		}
+
+		// Get the first process in the ready queue
+		currentProcess := readyQueue[0]
+
+		// Determine the time slice for this process (limited by time quantum)
+		timeSlice := mini(currentProcess.BurstDuration, timeQuantum)
+
+		// Update the gantt chart
+		gantt = append(gantt, TimeSlice{
+			PID:   currentProcess.ProcessID,
+			Start: currentTime,
+			Stop:  currentTime + timeSlice,
+		})
+
+		// Update the scheduling information
+		schedule[currentProcess.ProcessID-1] = []string{
+			fmt.Sprint(currentProcess.ProcessID),
+			fmt.Sprint(currentProcess.Priority),
+			fmt.Sprint(currentProcess.BurstDuration),
+			fmt.Sprint(currentProcess.ArrivalTime),
+			"", // Waiting time (to be calculated later)
+			"", // Turnaround time (to be calculated later)
+			"", // Completion time (to be calculated later)
+		}
+
+		// Update current time
+		currentTime += timeSlice
+
+		// Update the process's burst duration
+		currentProcess.BurstDuration -= timeSlice
+
+		// Move the current process to the end of the ready queue if it's not completed
+		if currentProcess.BurstDuration > 0 {
+			readyQueue = append(readyQueue[1:], currentProcess)
+		} else {
+			// Process has completed
+			// Calculate waiting time, turnaround time, and completion time
+			waitingTime := currentTime - currentProcess.ArrivalTime - currentProcess.BurstDuration
+			totalWait += float64(waitingTime)
+
+			turnaround := currentTime - currentProcess.ArrivalTime
+			totalTurnaround += float64(turnaround)
+
+			schedule[currentProcess.ProcessID-1][4] = fmt.Sprint(waitingTime)
+			schedule[currentProcess.ProcessID-1][5] = fmt.Sprint(turnaround)
+			schedule[currentProcess.ProcessID-1][6] = fmt.Sprint(currentTime)
+		}
+
+		lastCompletion = currentTime
+	}
+
+	count := float64(len(schedule))
+	aveWait := totalWait / count
+	aveTurnaround := totalTurnaround / count
+	aveThroughput := count / float64(lastCompletion)
+
+	outputTitle(w, title)
+	outputGantt(w, gantt)
+	outputSchedule(w, schedule, aveWait, aveTurnaround, aveThroughput)
+}
+
+// min returns the minimum of two integers
+func mini(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 //endregion
 
