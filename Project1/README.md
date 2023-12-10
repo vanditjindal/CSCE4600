@@ -1,3 +1,12 @@
+# Changes made to the original main.go
+- added the code for all additional process schedulers
+- added aditional test data in the .csv file
+- added .txt files that are used as a reference when the code is tested.
+- No changes to how the code runs. 
+
+- All added files and changes are visible under the repo vanditjindal/CSCE4600.
+
+
 # Project 1: Process Scheduler
 
 ## Description 
