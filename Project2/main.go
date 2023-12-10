@@ -81,6 +81,17 @@ func handleInput(w io.Writer, input string, exit chan<- struct{}) error {
 	case "exit":
 		exit <- struct{}{}
 		return nil
+	case "continue": // Add 'continue' built-in
+		builtins.ContinueShell()
+		return nil
+	case "pwd":
+		return builtins.PrintWorkingDirectory(w)
+	case "alias": // Add 'alias' built-in
+		return builtins.AliasCommand(w, args...)
+	case "builtin":
+		return builtins.BuiltinCommand(w, args...)
+	case "alloc":
+		return builtins.AllocCommand(os.Stdout, args...)
 	}
 
 	return executeCommand(name, args...)

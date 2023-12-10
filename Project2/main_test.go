@@ -35,6 +35,34 @@ func Test_runLoop(t *testing.T) {
 			},
 			wantErrW: "EOF",
 		},
+		{
+			name: "pwd command",
+			args: args{
+				r: strings.NewReader("pwd\nexit\n"),
+			},
+			wantW: "/some/directory\n",
+		},
+		{
+			name: "alias command",
+			args: args{
+				r: strings.NewReader("alias myalias=ls\nmyalias\nexit\n"),
+			},
+			wantW: "Executing alias: myalias -> ls\nCurrent aliases:\nmyalias -> ls\n",
+		},
+		{
+			name: "alloc command",
+			args: args{
+				r: strings.NewReader("alloc VARNAME\nexit\n"),
+			},
+			wantW: "Setting environment variable VARNAME=allocated_value\n",
+		},
+		{
+			name: "incorrect number of arguments",
+			args: args{
+				r: strings.NewReader("alloc\nexit\n"),
+			},
+			wantErrW: "usage: alloc VARNAME",
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -57,4 +85,35 @@ func Test_runLoop(t *testing.T) {
 			}
 		})
 	}
+	t.Run("continue shell", func(t *testing.T) {
+		t.Parallel()
+		continueCmd := strings.NewReader("continue\n")
+		w := &bytes.Buffer{}
+		errW := &bytes.Buffer{}
+
+		exit := make(chan struct{}, 2)
+		// run the loop for 10ms
+		go runLoop(continueCmd, w, errW, exit)
+		time.Sleep(10 * time.Millisecond)
+		exit <- struct{}{}
+
+		require.NotEmpty(t, w.String())
+		require.Empty(t, errW.String())
+	})
+	t.Run("builtin command", func(t *testing.T) {
+		t.Parallel()
+		builtinCmd := strings.NewReader("builtin echo Hello, World!\nexit\n")
+		w := &bytes.Buffer{}
+		errW := &bytes.Buffer{}
+
+		exit := make(chan struct{}, 2)
+		// run the loop for 10ms
+		go runLoop(builtinCmd, w, errW, exit)
+		time.Sleep(10 * time.Millisecond)
+		exit <- struct{}{}
+
+		require.NotEmpty(t, w.String())
+		require.Empty(t, errW.String())
+		require.Equal(t, "Hello, World!\n", w.String())
+	})
 }
