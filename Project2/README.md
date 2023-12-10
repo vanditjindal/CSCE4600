@@ -1,5 +1,20 @@
 # Project 2: Shell Builtins
 
+## Updates 
+
+Added the following shell builtins
+* Alias
+* Alloc
+* Builtin
+* Continue
+* PWD
+
+All of these shell builtins, and their subsequent test cases can be found in the 'builtins' folder
+in Project 2. 
+
+main.go and main_test.go have been update to reflect the new
+shell builtins added. 
+
 ## Description
 
 For this project we'll be adding commands to a simple shell. 
@@ -11,7 +26,7 @@ There are many builtins or shell-adjacent commands to pick from:
 [Bash Builtins](https://www.gnu.org/software/bash/manual/html_node/Bash-Builtins.html,), and 
 [Built-in csh and tcsh Commands](https://docstore.mik.ua/orelly/linux/lnut/ch08_09.htm).
 
-Feel free to pick from `sh`, `bash`, `csh`, `tcsh`, `ksh` or `zsh` builtins... or if you have something else in mind, ping me and we'll work it out.
+Feel free to pick from `sh`, `bash`, `csh`, `tcsh`, `ksh` or `zsh` builtins... or if you have something else in mind, ping me, and we'll work it out.
 
 As an example, two shell builtins have already been added to the package builtins:
 

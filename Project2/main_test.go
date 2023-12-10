@@ -45,7 +45,7 @@ func Test_runLoop(t *testing.T) {
 		{
 			name: "alias command",
 			args: args{
-				r: strings.NewReader("alias myalias=ls\nmyalias\nexit\n"),
+				r: strings.NewReader("alias myalias=ls -l\nmyalias\nexit\n"),
 			},
 			wantW: "Executing alias: myalias -> ls\nCurrent aliases:\nmyalias -> ls\n",
 		},
